@@ -563,54 +563,6 @@
   background:#dc2626;
   transform:translateY(-2px);
 }
-    /* 📱 MOBITEL – sakrij meni i social ikone */
-@media (max-width: 760px){
-
-  nav{
-    display:none;
-  }
-
-  .header-social{
-    display:none;
-  }
-
-}
-/* hamburger */
-.hamburger{
-  display:none;
-  font-size:30px;
-  cursor:pointer;
-  color:white;
-}
-
-/* MOBILNI */
-@media (max-width: 760px){
-
-  .hamburger{
-    display:block;
-  }
-
-  nav{
-    display:none;
-    flex-direction:column;
-    position:absolute;
-    top:80px;
-    right:15px;
-    background:#081120;
-    padding:15px;
-    border-radius:12px;
-    border:1px solid rgba(255,255,255,0.1);
-    z-index:9999;
-  }
-
-  nav.active{
-    display:flex;
-  }
-
-  .header-social{
-    display:none;
-  }
-}
   </style>
 </head>
 <body>
@@ -911,10 +863,6 @@
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
-function toggleMenu(){
-  const nav = document.querySelector("nav");
-  nav.classList.toggle("active");
-}
   </script>
 </body>
 </html> 
