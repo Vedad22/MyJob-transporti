@@ -563,6 +563,42 @@
   background:#dc2626;
   transform:translateY(-2px);
 }
+    .hamburger{
+  display:none;
+  font-size:32px;
+  cursor:pointer;
+  color:white;
+  z-index:10000;
+}
+
+/* MOBILE */
+@media (max-width: 760px){
+
+  .hamburger{
+    display:block;
+  }
+
+  nav{
+    display:none;
+    position:absolute;
+    top:70px;
+    right:15px;
+    flex-direction:column;
+    background:#081120;
+    padding:15px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.1);
+    z-index:9999;
+  }
+
+  nav.active{
+    display:flex;
+  }
+
+  .header-social{
+    display:none;
+  }
+}
   </style>
 </head>
 <body>
@@ -572,16 +608,21 @@
       <div class="logo">
         <div class="logo-badge">🚛</div>
         <div>MY JOB transporti Sarajevo</div>
-      </div>
+      </nav>
+
+  <div class="header-social">
+    ...
+  </div>
+
+  <div class="hamburger" onclick="toggleMenu()">☰</div>
+
+</div>
       <nav>
         <a href="#pocetna">Početna</a>
         <a href="#usluge">Usluge</a>
         <a href="#vozni-park">Vozni park</a>
         <a href="#o-nama">O nama</a>
         <a href="#kontakt">Kontakt</a>
-      <div class="hamburger" onclick="toggleMenu()">
-  ☰
-</div>
       </nav>
       <div class="header-social">
   <a href="https://www.instagram.com/myjob_transporti/" target="_blank">
@@ -863,6 +904,9 @@
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
+function toggleMenu(){
+  document.querySelector("nav").classList.toggle("active");
+}
   </script>
 </body>
 </html> 
