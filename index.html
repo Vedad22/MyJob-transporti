@@ -575,59 +575,32 @@
   }
 
 }
-    /* HAMBURGER - desktop hidden */
-.header{
-  position:sticky;
-  top:0;
-  z-index:999;
-}
-
-.nav-wrap{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  position:relative;
-}
-
-/* DESKTOP NAV */
-nav{
-  display:flex;
-  gap:22px;
-}
-
-/* HAMBURGER */
+/* hamburger */
 .hamburger{
   display:none;
-  flex-direction:column;
-  gap:5px;
+  font-size:30px;
   cursor:pointer;
+  color:white;
 }
 
-.hamburger span{
-  width:28px;
-  height:3px;
-  background:white;
-  border-radius:3px;
-}
-
-/* 📱 MOBILE */
+/* MOBILNI */
 @media (max-width: 760px){
 
   .hamburger{
-    display:flex;
+    display:block;
   }
 
   nav{
     display:none;
     flex-direction:column;
     position:absolute;
-    top:70px;
+    top:80px;
     right:15px;
-    background:rgba(8,17,32,0.98);
+    background:#081120;
     padding:15px;
     border-radius:12px;
     border:1px solid rgba(255,255,255,0.1);
-    z-index:1000;
+    z-index:9999;
   }
 
   nav.active{
@@ -635,7 +608,7 @@ nav{
   }
 
   .header-social{
-    display:none; /* da ne smeta na mobitelu */
+    display:none;
   }
 }
   </style>
@@ -654,10 +627,8 @@ nav{
         <a href="#vozni-park">Vozni park</a>
         <a href="#o-nama">O nama</a>
         <a href="#kontakt">Kontakt</a>
-        <div class="hamburger" onclick="toggleMenu()">
-  <span></span>
-  <span></span>
-  <span></span>
+      <div class="hamburger" onclick="toggleMenu()">
+  ☰
 </div>
       </nav>
       <div class="header-social">
@@ -940,10 +911,12 @@ nav{
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
+<script>
 function toggleMenu(){
   const nav = document.querySelector("nav");
   nav.classList.toggle("active");
 }
+</script>
   </script>
 </body>
 </html> 
