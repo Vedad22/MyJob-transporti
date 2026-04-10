@@ -575,6 +575,44 @@
   }
 
 }
+    /* HAMBURGER - desktop hidden */
+.hamburger{
+  display:none;
+  flex-direction:column;
+  gap:5px;
+  cursor:pointer;
+}
+
+.hamburger span{
+  width:28px;
+  height:3px;
+  background:white;
+  border-radius:3px;
+}
+
+/* MOBILE */
+@media (max-width: 760px){
+
+  nav{
+    display:none;
+    flex-direction:column;
+    position:absolute;
+    top:70px;
+    right:20px;
+    background:rgba(8,17,32,0.95);
+    padding:15px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.1);
+  }
+
+  nav.active{
+    display:flex;
+  }
+
+  .hamburger{
+    display:flex;
+  }
+}
   </style>
 </head>
 <body>
@@ -591,6 +629,11 @@
         <a href="#vozni-park">Vozni park</a>
         <a href="#o-nama">O nama</a>
         <a href="#kontakt">Kontakt</a>
+        <div class="hamburger" onclick="toggleMenu()">
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
       </nav>
       <div class="header-social">
   <a href="https://www.instagram.com/myjob_transporti/" target="_blank">
@@ -872,6 +915,11 @@
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
+    <script>
+function toggleMenu(){
+  document.querySelector("nav").classList.toggle("active");
+}
+</script>
   </script>
 </body>
 </html> 
