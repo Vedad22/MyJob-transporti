@@ -576,6 +576,26 @@
 
 }
     /* HAMBURGER - desktop hidden */
+.header{
+  position:sticky;
+  top:0;
+  z-index:999;
+}
+
+.nav-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:relative;
+}
+
+/* DESKTOP NAV */
+nav{
+  display:flex;
+  gap:22px;
+}
+
+/* HAMBURGER */
 .hamburger{
   display:none;
   flex-direction:column;
@@ -590,27 +610,32 @@
   border-radius:3px;
 }
 
-/* MOBILE */
+/* 📱 MOBILE */
 @media (max-width: 760px){
+
+  .hamburger{
+    display:flex;
+  }
 
   nav{
     display:none;
     flex-direction:column;
     position:absolute;
     top:70px;
-    right:20px;
-    background:rgba(8,17,32,0.95);
+    right:15px;
+    background:rgba(8,17,32,0.98);
     padding:15px;
     border-radius:12px;
     border:1px solid rgba(255,255,255,0.1);
+    z-index:1000;
   }
 
   nav.active{
     display:flex;
   }
 
-  .hamburger{
-    display:flex;
+  .header-social{
+    display:none; /* da ne smeta na mobitelu */
   }
 }
   </style>
@@ -915,11 +940,10 @@
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
-    <script>
 function toggleMenu(){
-  document.querySelector("nav").classList.toggle("active");
+  const nav = document.querySelector("nav");
+  nav.classList.toggle("active");
 }
-</script>
   </script>
 </body>
 </html> 
