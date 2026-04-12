@@ -315,7 +315,7 @@
       nav{display:none; position:absolute; top:70px; right:15px; left:15px; flex-direction:column; background:#081120; padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); z-index:9999;}
       nav.active{display:flex;}
       .header-right{gap:10px;}
-      .header-social{display:none;}
+      .header-social{display:flex;}
       .mobile-lang{display:block; width:100%; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
       .features,.fleet-grid,.stats-band,.contact-wrap,.about-wrap{grid-template-columns:1fr;}
       .hero{min-height:88vh;}
@@ -343,6 +343,10 @@
         <a href="#kontakt" data-t="nav_contact">Kontakt</a>
         <div class="mobile-lang">
           <button class="lang-switch" onclick="toggleLang()"><span id="langBtnMobile">English</span></button>
+          <div style="display:flex; gap:10px; margin-top:12px; justify-content:center;">
+            <a href="https://www.instagram.com/myjob_transporti/" target="_blank" style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:rgba(255,255,255,0.08); color:white; font-size:18px;"><i class="fab fa-instagram"></i></a>
+            <a href="https://www.facebook.com/myjob.bih/" target="_blank" style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:rgba(255,255,255,0.08); color:white; font-size:18px;"><i class="fab fa-facebook-f"></i></a>
+          </div>
         </div>
       </nav>
       <div class="header-right">
