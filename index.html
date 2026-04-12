@@ -1,8 +1,199 @@
 <!DOCTYPE html>
 <html lang="bs">
 <head>
+<!-- Playables SDK -->
+<script>// Playables SDK v1.0.0
+// Game lifecycle bridge: rAF-based game-ready detection + event communication
+(function() {
+  'use strict';
+
+  // Idempotency: skip if already initialized (e.g., server-side injection
+  // followed by client-side inject-javascript via the Bloks webview component).
+  if (window.playablesSDK) return;
+
+  var HANDLER_NAME = 'playablesGameEventHandler';
+  var ANDROID_BRIDGE_NAME = '_MetaPlayablesBridge';
+  var RAF_FRAME_THRESHOLD = 3;
+
+  var gameReadySent = false;
+  var firstInteractionSent = false;
+  var errorSent = false;
+  var frameCount = 0;
+  var originalRAF = window.requestAnimationFrame;
+
+  // --- Transport Layer ---
+
+  function hasIOSBridge() {
+    return !!(window.webkit &&
+              window.webkit.messageHandlers &&
+              window.webkit.messageHandlers[HANDLER_NAME]);
+  }
+
+  function hasAndroidBridge() {
+    return !!(window[ANDROID_BRIDGE_NAME] &&
+              typeof window[ANDROID_BRIDGE_NAME].postEvent === 'function');
+  }
+
+  function isInIframe() {
+    return !!(window.parent && window.parent !== window);
+  }
+
+  function sendEvent(eventName, payload) {
+    var message = {
+      type: eventName,
+      payload: payload || {},
+      timestamp: Date.now()
+    };
+
+    if (hasIOSBridge()) {
+      try {
+        window.webkit.messageHandlers[HANDLER_NAME].postMessage(message);
+      } catch (e) { /* ignore */ }
+      return;
+    }
+
+    if (hasAndroidBridge()) {
+    try {
+      var p = payload || {};
+      p.__secureToken = window.__fbAndroidBridgeAuthToken || '';
+      window[ANDROID_BRIDGE_NAME].postEvent(
+        eventName,
+        JSON.stringify(p)
+      );
+    } catch (e) { /* ignore */ }
+    return;
+  }
+
+    if (isInIframe()) {
+      try {
+        window.parent.postMessage(message, '*');
+      } catch (e) { /* ignore */ }
+      return;
+    }
+  }
+
+  // --- rAF Game-Ready Detection ---
+
+  function onFrame() {
+    if (gameReadySent) return;
+
+    frameCount++;
+    if (frameCount >= RAF_FRAME_THRESHOLD) {
+      gameReadySent = true;
+      sendEvent('game_ready', {
+        frame_count: frameCount,
+        detected_at: Date.now()
+      });
+      return;
+    }
+
+    originalRAF.call(window, onFrame);
+  }
+
+  if (originalRAF) {
+    window.requestAnimationFrame = function(callback) {
+      if (!gameReadySent) {
+        return originalRAF.call(window, function(timestamp) {
+          frameCount++;
+          if (frameCount >= RAF_FRAME_THRESHOLD && !gameReadySent) {
+            gameReadySent = true;
+            sendEvent('game_ready', {
+              frame_count: frameCount,
+              detected_at: Date.now()
+            });
+          }
+          callback(timestamp);
+        });
+      }
+      return originalRAF.call(window, callback);
+    };
+  }
+
+  // --- First User Interaction Detection ---
+
+  function setupFirstInteractionDetection() {
+    var events = ['touchstart', 'mousedown', 'keydown'];
+
+    function onFirstInteraction() {
+      if (firstInteractionSent) return;
+      firstInteractionSent = true;
+      sendEvent('user_interaction_start', null);
+
+      for (var i = 0; i < events.length; i++) {
+        document.removeEventListener(events[i], onFirstInteraction, true);
+      }
+    }
+
+    for (var i = 0; i < events.length; i++) {
+      document.addEventListener(events[i], onFirstInteraction, true);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupFirstInteractionDetection);
+  } else {
+    setupFirstInteractionDetection();
+  }
+
+  // --- Auto Error Capture ---
+
+  window.addEventListener('error', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    sendEvent('error', {
+      message: event.message || 'Unknown error',
+      source: event.filename || '',
+      lineno: event.lineno || 0,
+      colno: event.colno || 0,
+      auto_captured: true
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    var reason = event.reason;
+    sendEvent('error', {
+      message: (reason instanceof Error) ? reason.message : String(reason),
+      type: 'unhandled_promise_rejection',
+      auto_captured: true
+    });
+  });
+
+  // --- Public API ---
+
+  window.playablesSDK = {
+    complete: function(score) {
+      sendEvent('game_ended', {
+        score: score,
+        completed: true
+      });
+    },
+
+    error: function(message) {
+      if (errorSent) return;
+      errorSent = true;
+      sendEvent('error', {
+        message: message || 'Unknown error',
+        auto_captured: false
+      });
+    },
+
+    sendEvent: function(eventName, payload) {
+      if (!eventName || typeof eventName !== 'string') return;
+      sendEvent(eventName, payload);
+    }
+  };
+
+  // Kick off rAF detection in case no game code calls rAF immediately
+  if (originalRAF) {
+    originalRAF.call(window, onFrame);
+  }
+})();</script>
+<script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MY JOB transporti Sarajevo - frigo i kopneni transport širom EU. EURO 6 vozni park, 24/7 logistika.">
   <title>MY JOB transporti Sarajevo</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -25,588 +216,115 @@
     }
 
     *{box-sizing:border-box; scroll-behavior:smooth;}
+    html{scroll-padding-top:90px;}
     html,body{margin:0; padding:0; font-family:'Poppins',sans-serif; background:linear-gradient(135deg,#081120 0%,#1a0a0a 25%,#0b1220 55%,#2d0a0a 85%,#09111f 100%); color:var(--text);}
     img{max-width:100%; display:block;}
     a{text-decoration:none; color:inherit;}
 
-.container{
-      width:min(var(--max), calc(100% - 32px));
-      margin:auto;
-    }
-
-    header{
-      position:sticky;
-      top:0;
-      z-index:999;
-      backdrop-filter: blur(14px);
-      background:rgba(8,17,32,.72);
-      border-bottom:1px solid var(--line);
-    }
-
-.nav-wrap{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:20px;
-      padding:18px 0;
-      flex-wrap:wrap;
-    }
-
-.logo{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      font-size:22px;
-      font-weight:800;
-      letter-spacing:.2px;
-    }
-
-.logo-badge{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(135deg,var(--accent-red),#991b1b);
-      box-shadow:0 10px 25px rgba(220,38,38,.35);
-      font-size:20px;
-    }
-
-    nav{
-      display:flex;
-      gap:22px;
-      flex-wrap:wrap;
-    }
-
-    nav a{
-      color:#dbe7f8;
-      font-weight:500;
-      transition:.25s ease;
-      position:relative;
-    }
-
+    .container{width:min(var(--max), calc(100% - 32px)); margin:auto;}
+    header{position:sticky; top:0; z-index:999; backdrop-filter: blur(14px); background:rgba(8,17,32,.72); border-bottom:1px solid var(--line);}
+    .nav-wrap{display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 0;}
+    .logo{display:flex; align-items:center; gap:12px; font-size:22px; font-weight:800; letter-spacing:.2px;}
+    .logo-badge{width:42px; height:42px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent-red),#991b1b); box-shadow:0 10px 25px rgba(220,38,38,.35); font-size:20px;}
+    nav{display:flex; gap:22px; flex-wrap:wrap; align-items:center;}
+    nav a{color:#dbe7f8; font-weight:500; transition:.25s ease; position:relative;}
     nav a:hover{color:var(--accent-red-2);}
-    nav a::after{
-      content:"";
-      position:absolute;
-      left:0;
-      bottom:-6px;
-      width:0;
-      height:2px;
-      background:var(--accent-red-2);
-      transition:.25s ease;
-    }
+    nav a::after{content:""; position:absolute; left:0; bottom:-6px; width:0; height:2px; background:var(--accent-red-2); transition:.25s ease;}
     nav a:hover::after{width:100%;}
+    .header-right{display:flex; align-items:center; gap:14px;}
+    .header-social{display:flex; gap:10px; align-items:center;}
+    .header-social a{width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:rgba(255,255,255,0.06); color:white; font-size:16px; transition:.3s;}
+    .header-social a:hover{background:#dc2626; transform:translateY(-2px);}
+    .lang-switch{padding:8px 14px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#e7f0ff; font-weight:600; font-size:14px; cursor:pointer; transition:.25s ease;}
+    .lang-switch:hover{background:rgba(220,38,38,.2); border-color:rgba(239,68,68,.4);}
+    .hamburger{display:none; font-size:32px; cursor:pointer; color:white; z-index:10000;}
+    .mobile-lang{display:none;}
 
-.hero{
-      position:relative;
-      min-height:92vh;
-      overflow:hidden;
-      display:flex;
-      align-items:center;
-    }
+    .hero{position:relative; min-height:92vh; overflow:hidden; display:flex; align-items:center;}
+    .hero-slide{position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; transform:scale(1.04); transition:opacity 1s ease, transform 7s ease;}
+    .hero-slide.active{opacity:1; transform:scale(1);}
+    .hero-overlay{position:absolute; inset:0; background:linear-gradient(90deg, rgba(4,10,20,.82) 0%, rgba(20,4,4,.55) 40%, rgba(4,10,20,.35) 100%), linear-gradient(180deg, rgba(6,12,23,.20) 0%, rgba(20,6,6,.70) 100%); z-index:1;}
+    .hero-content{position:relative; z-index:2; width:min(760px, 100%); padding:100px 0 80px;}
+    .eyebrow{display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border:1px solid rgba(220,38,38,.25); border-radius:999px; background:rgba(220,38,38,.10); color:#fecaca; font-size:14px; font-weight:600; margin-bottom:20px;}
+    .hero h1{margin:0 0 18px; font-size:clamp(38px, 6vw, 72px); line-height:1.05; letter-spacing:-1.2px;}
+    .hero p{margin:0 0 28px; font-size:clamp(16px, 2.2vw, 21px); color:#d2deef; max-width:680px;}
+    .hero-actions{display:flex; gap:14px; flex-wrap:wrap; margin-top:22px;}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:15px 26px; border-radius:14px; border:1px solid transparent; font-weight:700; transition:.25s ease; cursor:pointer;}
+    .btn-primary{color:white; background:linear-gradient(135deg,var(--accent-red),#991b1b); box-shadow:0 16px 35px rgba(220,38,38,.35);}
+    .btn-primary:hover{transform:translateY(-2px); box-shadow:0 20px 40px rgba(220,38,38,.45);}
+    .btn-secondary{color:#e7f0ff; background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.14);}
+    .btn-secondary:hover{background:rgba(255,255,255,.10); transform:translateY(-2px);}
+    .hero-mini-stats{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:34px;}
+    .hero-mini-stat{background:rgba(10,18,34,.58); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:16px 18px; backdrop-filter:blur(8px);}
+    .hero-mini-stat strong{display:block; font-size:22px; color:#fff;}
+    .hero-mini-stat span{color:var(--muted); font-size:14px;}
 
-.hero-slide{
-      position:absolute;
-      inset:0;
-      background-size:cover;
-      background-position:center;
-      opacity:0;
-      transform:scale(1.04);
-      transition:opacity 1s ease, transform 7s ease;
-    }
+    .section{padding:90px 0;}
+    .section-head{text-align:center; max-width:800px; margin:0 auto 40px;}
+    .section-head .tag{display:inline-block; color:var(--accent-red-2); font-weight:700; text-transform:uppercase; letter-spacing:1.2px; font-size:13px; margin-bottom:10px;}
+    .section-head h2{margin:0 0 14px; font-size:clamp(30px,4vw,46px); line-height:1.1;}
+    .section-head p{margin:0; color:var(--muted); font-size:17px;}
 
-.hero-slide.active{
-      opacity:1;
-      transform:scale(1);
-    }
+    .features{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px;}
+    .feature{background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%); border:1px solid var(--line); border-radius:var(--radius); padding:28px; box-shadow:var(--shadow); transition:.3s ease;}
+    .feature:hover{transform:translateY(-8px); border-color:rgba(220,38,38,.25); box-shadow:0 24px 55px rgba(0,0,0,.42);}
+    .feature-icon{width:58px; height:58px; border-radius:18px; display:grid; place-items:center; margin-bottom:18px; font-size:24px; background:linear-gradient(135deg,rgba(220,38,38,.2),rgba(153,27,27,.35)); border:1px solid rgba(239,68,68,.18);}
+    .feature h3{margin:0 0 10px; font-size:22px;}
+    .feature p{margin:0; color:var(--muted); line-height:1.75;}
 
-.hero-overlay{
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(90deg, rgba(4,10,20,.82) 0%, rgba(20,4,4,.55) 40%, rgba(4,10,20,.35) 100%),
-        linear-gradient(180deg, rgba(6,12,23,.20) 0%, rgba(20,6,6,.70) 100%);
-      z-index:1;
-    }
+    .stats-band{margin-top:30px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px;}
+    .stat-card{text-align:center; padding:24px 18px; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:18px;}
+    .stat-card strong{display:block; font-size:28px; color:white; margin-bottom:6px;}
+    .stat-card span{color:var(--muted); font-size:15px;}
 
-.hero-content{
-      position:relative;
-      z-index:2;
-      width:min(760px, 100%);
-      padding:100px 0 80px;
-    }
+    .fleet-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px;}
+    .fleet-item{position:relative; overflow:hidden; border-radius:22px; border:1px solid var(--line); background:#0d1628; min-height:280px; box-shadow:var(--shadow);}
+    .fleet-item img{width:100%; height:100%; object-fit:cover; transition:transform .6s ease;}
+    .fleet-item:hover img{transform:scale(1.06);}
 
-.eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 16px;
-      border:1px solid rgba(220,38,38,.25);
-      border-radius:999px;
-      background:rgba(220,38,38,.10);
-      color:#fecaca;
-      font-size:14px;
-      font-weight:600;
-      margin-bottom:20px;
-    }
+    .about-wrap{display:grid; grid-template-columns:1.05fr .95fr; gap:28px; align-items:center;}
+    .about-card{background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%); border:1px solid var(--line); border-radius:24px; padding:34px; box-shadow:var(--shadow);}
+    .about-card h3{margin:0 0 16px; font-size:30px;}
+    .about-card p{margin:0 0 16px; color:var(--muted); line-height:1.8;}
+    .check-list{display:grid; gap:12px; margin-top:20px;}
+    .check{display:flex; gap:12px; align-items:flex-start; color:#dbe8f8;}
+    .check span{color:var(--accent-red-2); font-weight:800; margin-top:1px;}
+    .about-image{overflow:hidden; border-radius:24px; border:1px solid var(--line); min-height:100%; box-shadow:var(--shadow);}
+    .about-image img{width:100%; height:100%; min-height:520px; object-fit:cover;}
 
-.hero h1{
-      margin:0 0 18px;
-      font-size:clamp(38px, 6vw, 72px);
-      line-height:1.05;
-      letter-spacing:-1.2px;
-    }
+    .contact-wrap{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+    .contact-card{background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%); border:1px solid var(--line); border-radius:24px; padding:32px; box-shadow:var(--shadow);}
+    .contact-card h3{margin:0 0 14px; font-size:28px;}
+    .contact-list{display:grid; gap:14px; margin-top:22px;}
+    .contact-item{display:flex; align-items:flex-start; gap:14px; color:#d7e4f5; line-height:1.7;}
+    .contact-icon{width:42px; height:42px; min-width:42px; border-radius:14px; display:grid; place-items:center; background:rgba(220,38,38,.12); border:1px solid rgba(239,68,68,.18);}
+    .cta-box{height:100%; display:flex; flex-direction:column; justify-content:center; background:linear-gradient(135deg, rgba(220,38,38,.18), rgba(153,27,27,.10)), linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%);}
 
-.hero p{
-      margin:0 0 28px;
-      font-size:clamp(16px, 2.2vw, 21px);
-      color:#d2deef;
-      max-width:680px;
-    }
-
-.hero-actions{
-      display:flex;
-      gap:14px;
-      flex-wrap:wrap;
-      margin-top:22px;
-    }
-
-.btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      padding:15px 26px;
-      border-radius:14px;
-      border:1px solid transparent;
-      font-weight:700;
-      transition:.25s ease;
-      cursor:pointer;
-    }
-
-.btn-primary{
-      color:white;
-      background:linear-gradient(135deg,var(--accent-red),#991b1b);
-      box-shadow:0 16px 35px rgba(220,38,38,.35);
-    }
-
-.btn-primary:hover{
-      transform:translateY(-2px);
-      box-shadow:0 20px 40px rgba(220,38,38,.45);
-    }
-
-.btn-secondary{
-      color:#e7f0ff;
-      background:rgba(255,255,255,.06);
-      border-color:rgba(255,255,255,.14);
-    }
-
-.btn-secondary:hover{
-      background:rgba(255,255,255,.10);
-      transform:translateY(-2px);
-    }
-
-.hero-mini-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-      margin-top:34px;
-    }
-
-.hero-mini-stat{
-      background:rgba(10,18,34,.58);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:16px 18px;
-      backdrop-filter:blur(8px);
-    }
-
-.hero-mini-stat strong{
-      display:block;
-      font-size:22px;
-      color:#fff;
-    }
-
-.hero-mini-stat span{
-      color:var(--muted);
-      font-size:14px;
-    }
-
-.section{
-      padding:90px 0;
-    }
-
-.section-head{
-      text-align:center;
-      max-width:800px;
-      margin:0 auto 40px;
-    }
-
-.section-head.tag{
-      display:inline-block;
-      color:var(--accent-red-2);
-      font-weight:700;
-      text-transform:uppercase;
-      letter-spacing:1.2px;
-      font-size:13px;
-      margin-bottom:10px;
-    }
-
-.section-head h2{
-      margin:0 0 14px;
-      font-size:clamp(30px,4vw,46px);
-      line-height:1.1;
-    }
-
-.section-head p{
-      margin:0;
-      color:var(--muted);
-      font-size:17px;
-    }
-
-.features{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:22px;
-    }
-
-.feature{
-      background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      padding:28px;
-      box-shadow:var(--shadow);
-      transition:.3s ease;
-    }
-
-.feature:hover{
-      transform:translateY(-8px);
-      border-color:rgba(220,38,38,.25);
-      box-shadow:0 24px 55px rgba(0,0,0,.42);
-    }
-
-.feature-icon{
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      margin-bottom:18px;
-      font-size:24px;
-      background:linear-gradient(135deg,rgba(220,38,38,.2),rgba(153,27,27,.35));
-      border:1px solid rgba(239,68,68,.18);
-    }
-
-.feature h3{
-      margin:0 0 10px;
-      font-size:22px;
-    }
-
-.feature p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.75;
-    }
-
-.stats-band{
-      margin-top:30px;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:16px;
-    }
-
-.stat-card{
-      text-align:center;
-      padding:24px 18px;
-      background:rgba(255,255,255,.03);
-      border:1px solid var(--line);
-      border-radius:18px;
-    }
-
-.stat-card strong{
-      display:block;
-      font-size:28px;
-      color:white;
-      margin-bottom:6px;
-    }
-
-.stat-card span{
-      color:var(--muted);
-      font-size:15px;
-    }
-
-.fleet-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:18px;
-    }
-
-.fleet-item{
-      position:relative;
-      overflow:hidden;
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:#0d1628;
-      min-height:280px;
-      box-shadow:var(--shadow);
-    }
-
-.fleet-item img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      transition:transform.6s ease;
-    }
-
-.fleet-item:hover img{
-      transform:scale(1.06);
-    }
-
-.about-wrap{
-      display:grid;
-      grid-template-columns:1.05fr.95fr;
-      gap:28px;
-      align-items:center;
-    }
-
-.about-card{
-      background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:34px;
-      box-shadow:var(--shadow);
-    }
-
-.about-card h3{
-      margin:0 0 16px;
-      font-size:30px;
-    }
-
-.about-card p{
-      margin:0 0 16px;
-      color:var(--muted);
-      line-height:1.8;
-    }
-
-.check-list{
-      display:grid;
-      gap:12px;
-      margin-top:20px;
-    }
-
-.check{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      color:#dbe8f8;
-    }
-
-.check span{
-      color:var(--accent-red-2);
-      font-weight:800;
-      margin-top:1px;
-    }
-
-.about-image{
-      overflow:hidden;
-      border-radius:24px;
-      border:1px solid var(--line);
-      min-height:100%;
-      box-shadow:var(--shadow);
-    }
-
-.about-image img{
-      width:100%;
-      height:100%;
-      min-height:520px;
-      object-fit:cover;
-    }
-
-.contact-wrap{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:24px;
-    }
-
-.contact-card{
-      background:linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:32px;
-      box-shadow:var(--shadow);
-    }
-
-.contact-card h3{
-      margin:0 0 14px;
-      font-size:28px;
-    }
-
-.contact-list{
-      display:grid;
-      gap:14px;
-      margin-top:22px;
-    }
-
-.contact-item{
-      display:flex;
-      align-items:flex-start;
-      gap:14px;
-      color:#d7e4f5;
-      line-height:1.7;
-    }
-
-.contact-icon{
-      width:42px;
-      height:42px;
-      min-width:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:rgba(220,38,38,.12);
-      border:1px solid rgba(239,68,68,.18);
-    }
-
-.cta-box{
-      height:100%;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      background:
-        linear-gradient(135deg, rgba(220,38,38,.18), rgba(153,27,27,.10)),
-        linear-gradient(180deg,var(--card) 0%, var(--card-2) 100%);
-    }
-
-    footer{
-      padding:28px 0 40px;
-      border-top:1px solid var(--line);
-      text-align:center;
-      color:var(--muted);
-    }
+    footer{padding:28px 0 40px; border-top:1px solid var(--line); text-align:center; color:var(--muted);}
+    .wa-btn{position:fixed; bottom:25px; right:25px; width:60px; height:60px; background:#25D366; border-radius:50%; display:grid; place-items:center; font-size:32px; color:white; box-shadow:0 8px 25px rgba(37,211,102,.4); z-index:998; transition:.3s;}
+    .wa-btn:hover{transform:scale(1.1); box-shadow:0 12px 35px rgba(37,211,102,.6);}
 
     @media (max-width: 1100px){
-.features,
-.fleet-grid,
-.stats-band,
-.contact-wrap,
-.about-wrap{
-        grid-template-columns:1fr 1fr;
-      }
-.hero-mini-stats{
-        grid-template-columns:1fr;
-      }
+      .features,.fleet-grid,.stats-band,.contact-wrap,.about-wrap{grid-template-columns:1fr 1fr;}
+      .hero-mini-stats{grid-template-columns:1fr;}
     }
-
     @media (max-width: 760px){
-.nav-wrap{
-        justify-content:center;
-      }
-
-      nav{
-        justify-content:center;
-      }
-
-.features,
-.fleet-grid,
-.stats-band,
-.contact-wrap,
-.about-wrap{
-        grid-template-columns:1fr;
-      }
-
-.hero{
-        min-height:88vh;
-      }
-
-.hero-content{
-        text-align:center;
-      }
-
-.hero-actions{
-        justify-content:center;
-      }
-
-.section{
-        padding:70px 0;
-      }
-
-.feature,
-.about-card,
-.contact-card{
-        padding:24px;
-      }
-
-.about-image img{
-        min-height:340px;
-      }
+      .logo{font-size:18px;}
+      .logo-badge{width:36px; height:36px; font-size:18px;}
+      .hamburger{display:block;}
+      nav{display:none; position:absolute; top:70px; right:15px; left:15px; flex-direction:column; background:#081120; padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); z-index:9999;}
+      nav.active{display:flex;}
+      .header-right{gap:10px;}
+      .header-social{display:none;}
+      .mobile-lang{display:block; width:100%; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+      .features,.fleet-grid,.stats-band,.contact-wrap,.about-wrap{grid-template-columns:1fr;}
+      .hero{min-height:88vh;}
+      .hero-content{text-align:center;}
+      .hero-actions{justify-content:center;}
+      .section{padding:70px 0;}
+      .feature,.about-card,.contact-card{padding:24px;}
+      .about-image img{min-height:340px;}
     }
-    .header-social{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-
-.header-social a{
-  width:38px;
-  height:38px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:10px;
-  background:rgba(255,255,255,0.06);
-  color:white;
-  font-size:16px;
-  transition:.3s;
-}
-
-.header-social a:hover{
-  background:#dc2626;
-  transform:translateY(-2px);
-}
-    .hamburger{
-  display:none;
-  font-size:32px;
-  cursor:pointer;
-  color:white;
-  z-index:10000;
-}
-
-/* MOBILE */
-@media (max-width: 760px){
-
-  .hamburger{
-    display:block;
-  }
-
-  nav{
-    display:none;
-    position:absolute;
-    top:70px;
-    right:15px;
-    flex-direction:column;
-    background:#081120;
-    padding:15px;
-    border-radius:12px;
-    border:1px solid rgba(255,255,255,0.1);
-    z-index:9999;
-  }
-
-  nav.active{
-    display:flex;
-  }
-
-  .header-social{
-    display:none;
-  }
-}
-    @media (max-width: 760px){
-  .header-social{
-    display:flex;
-    position:absolute;
-    right:60px;
-    top:22px;
-  }
-}
   </style>
 </head>
 <body>
@@ -616,31 +334,25 @@
       <div class="logo">
         <div class="logo-badge">🚛</div>
         <div>MY JOB transporti Sarajevo</div>
+      </div>
+      <nav id="mainNav">
+        <a href="#pocetna" data-t="nav_home">Početna</a>
+        <a href="#usluge" data-t="nav_services">Usluge</a>
+        <a href="#vozni-park" data-t="nav_fleet">Vozni park</a>
+        <a href="#o-nama" data-t="nav_about">O nama</a>
+        <a href="#kontakt" data-t="nav_contact">Kontakt</a>
+        <div class="mobile-lang">
+          <button class="lang-switch" onclick="toggleLang()"><span id="langBtnMobile">English</span></button>
+        </div>
       </nav>
-
-  <div class="header-social">
-    ...
-  </div>
-
-  <div class="hamburger" onclick="toggleMenu()">☰</div>
-
-</div>
-      <nav>
-        <a href="#pocetna">Početna</a>
-        <a href="#usluge">Usluge</a>
-        <a href="#vozni-park">Vozni park</a>
-        <a href="#o-nama">O nama</a>
-        <a href="#kontakt">Kontakt</a>
-      </nav>
-      <div class="header-social">
-  <a href="https://www.instagram.com/myjob_transporti/" target="_blank">
-    <i class="fab fa-instagram"></i>
-  </a>
-
-  <a href="https://www.facebook.com/myjob.bih/" target="_blank">
-    <i class="fab fa-facebook-f"></i>
-  </a>
-</div>
+      <div class="header-right">
+        <button class="lang-switch" onclick="toggleLang()"><span id="langBtn">English</span></button>
+        <div class="header-social">
+          <a href="https://www.instagram.com/myjob_transporti/" target="_blank" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://www.facebook.com/myjob.bih/" target="_blank" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+        </div>
+        <div class="hamburger" onclick="toggleMenu()">☰</div>
+      </div>
     </div>
   </header>
 
@@ -652,36 +364,20 @@
     <div class="hero-slide" style="background-image:url('slika15.jpg');"></div>
     <div class="hero-slide" style="background-image:url('slika17.jpg');"></div>
     <div class="hero-slide" style="background-image:url('slika21.jpg');"></div>
-
     <div class="hero-overlay"></div>
-
     <div class="container">
       <div class="hero-content">
-        <div class="eyebrow">Pouzdan partner za domaći i međunarodni transport</div>
-        <h1>Transport bez granica</h1>
-        <p>
-          Siguran, brz i profesionalan transport robe širom Evrope uz moderan vozni park,
-          rashladne prikolice i maksimalnu pouzdanost u svakom kilometru.
-        </p>
-
+        <div class="eyebrow" data-t="hero_eyebrow">Pouzdan partner za domaći i međunarodni transport</div>
+        <h1 data-t="hero_title">Transport bez granica</h1>
+        <p data-t="hero_desc">Siguran, brz i profesionalan transport robe širom Evrope uz moderan vozni park, rashladne prikolice i maksimalnu pouzdanost u svakom kilometru.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#kontakt">Kontaktiraj nas</a>
-          <a class="btn btn-secondary" href="#vozni-park">Pogledaj vozni park</a>
+          <a class="btn btn-primary" href="#kontakt" data-t="hero_btn1">Kontaktiraj nas</a>
+          <a class="btn btn-secondary" href="#vozni-park" data-t="hero_btn2">Pogledaj vozni park</a>
         </div>
-
         <div class="hero-mini-stats">
-          <div class="hero-mini-stat">
-            <strong>20+</strong>
-            <span>godina iskustva</span>
-          </div>
-          <div class="hero-mini-stat">
-            <strong>BiH i EU</strong>
-            <span>transportno tržište</span>
-          </div>
-          <div class="hero-mini-stat">
-            <strong>24/7</strong>
-            <span>logistika i praćenje</span>
-          </div>
+          <div class="hero-mini-stat"><strong>20+</strong><span data-t="stat1">godina iskustva</span></div>
+          <div class="hero-mini-stat"><strong>BiH i EU</strong><span data-t="stat2">transportno tržište</span></div>
+          <div class="hero-mini-stat"><strong>24/7</strong><span data-t="stat3">logistika i praćenje</span></div>
         </div>
       </div>
     </div>
@@ -690,60 +386,20 @@
   <section class="section" id="usluge">
     <div class="container">
       <div class="section-head">
-        <div class="tag">Naše usluge</div>
-        <h2>Kompletna transportna rješenja za vaše poslovanje</h2>
-        <p>
-          Fokusirani smo na sigurnost robe, tačnost isporuke i profesionalnu organizaciju
-          transporta od utovara do krajnje destinacije.
-        </p>
+        <div class="tag" data-t="services_tag">Naše usluge</div>
+        <h2 data-t="services_title">Kompletna transportna rješenja za vaše poslovanje</h2>
+        <p data-t="services_desc">Fokusirani smo na sigurnost robe, tačnost isporuke i profesionalnu organizaciju transporta od utovara do krajnje destinacije.</p>
       </div>
-
       <div class="features">
-        <div class="feature">
-          <div class="feature-icon">🚚</div>
-          <h3>Kopneni transport</h3>
-          <p>
-            Organizujemo brz i siguran transport robe širom Evrope uz maksimalnu
-            pouzdanost, tačnost i profesionalan pristup svakom klijentu.
-          </p>
-        </div>
-
-        <div class="feature">
-          <div class="feature-icon">❄️</div>
-          <h3>Frigo transport</h3>
-          <p>
-            Specijalizirani transport u kontrolisanim temperaturnim režimima
-            za robu koja zahtijeva stabilne uslove u plus i minus režimu.
-          </p>
-        </div>
-
-        <div class="feature">
-          <div class="feature-icon">📍</div>
-          <h3>Logistika i praćenje</h3>
-          <p>
-            Planiranje ruta, organizacija isporuka i praćenje transporta 24/7
-            kako bi svaka pošiljka stigla sigurno i na vrijeme.
-          </p>
-        </div>
+        <div class="feature"><div class="feature-icon">🚚</div><h3 data-t="feature1_title">Kopneni transport</h3><p data-t="feature1_desc">Organizujemo brz i siguran transport robe širom Evrope uz maksimalnu pouzdanost, tačnost i profesionalan pristup svakom klijentu.</p></div>
+        <div class="feature"><div class="feature-icon">❄️</div><h3 data-t="feature2_title">Frigo transport</h3><p data-t="feature2_desc">Specijalizirani transport u kontrolisanim temperaturnim režimima za robu koja zahtijeva stabilne uslove u plus i minus režimu.</p></div>
+        <div class="feature"><div class="feature-icon">📍</div><h3 data-t="feature3_title">Logistika i praćenje</h3><p data-t="feature3_desc">Planiranje ruta, organizacija isporuka i praćenje transporta 24/7 kako bi svaka pošiljka stigla sigurno i na vrijeme.</p></div>
       </div>
-
       <div class="stats-band">
-        <div class="stat-card">
-          <strong>EURO 6</strong>
-          <span>savremeni standard voznog parka</span>
-        </div>
-        <div class="stat-card">
-          <strong>24/7</strong>
-          <span>podrška i organizacija transporta</span>
-        </div>
-        <div class="stat-card">
-          <strong>+ / −</strong>
-          <span>temperaturni režimi transporta</span>
-        </div>
-        <div class="stat-card">
-          <strong>A+</strong>
-          <span>CompanyWall ocjena iz dokumenta</span>
-        </div>
+        <div class="stat-card"><strong>EURO 6</strong><span data-t="statbox1">savremeni standard voznog parka</span></div>
+        <div class="stat-card"><strong>24/7</strong><span data-t="statbox2">podrška i organizacija transporta</span></div>
+        <div class="stat-card"><strong>+ / −</strong><span data-t="statbox3">temperaturni režimi transporta</span></div>
+        <div class="stat-card"><strong>A+</strong><span data-t="statbox4">CompanyWall ocjena iz dokumenta</span></div>
       </div>
     </div>
   </section>
@@ -751,65 +407,28 @@
   <section class="section" id="vozni-park">
     <div class="container">
       <div class="section-head">
-        <div class="tag">Vozni park</div>
-        <h2>Moderan vozni park spreman za ozbiljne rute</h2>
-        <p>
-          Šleperi i hladnjače za efikasan transport robe uz pouzdanost, urednost i snažan vizualni identitet firme.
-        </p>
+        <div class="tag" data-t="fleet_tag">Vozni park</div>
+        <h2 data-t="fleet_title">Moderan vozni park spreman za ozbiljne rute</h2>
+        <p data-t="fleet_desc">Šleperi i hladnjače za efikasan transport robe uz pouzdanost, urednost i snažan vizualni identitet firme.</p>
       </div>
-
       <div class="fleet-grid">
-        <div class="fleet-item">
-          <img src="slika2.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika5.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika6.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika7.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika8.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika10.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika11.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika12.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika13.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika14.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika16.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika18.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika19.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika20.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika22.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika23.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
-        <div class="fleet-item">
-          <img src="slika24.jpg" alt="MY JOB kamion" loading="lazy">
-        </div>
+        <div class="fleet-item"><img src="slika2.jpg" alt="MY JOB šleper" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika5.jpg" alt="MY JOB kamion EURO 6" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika6.jpg" alt="MY JOB hladnjača" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika7.jpg" alt="MY JOB vozni park" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika8.jpg" alt="MY JOB kamion" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika10.jpg" alt="MY JOB frigo prikolica" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika11.jpg" alt="MY JOB Scania" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika12.jpg" alt="MY JOB kamion" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika13.jpg" alt="MY JOB transport" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika14.jpg" alt="MY JOB šleper" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika16.jpg" alt="MY JOB kamion" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika18.jpg" alt="MY JOB vozilo" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika19.jpg" alt="MY JOB flota" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika20.jpg" alt="MY JOB prikolica" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika22.jpg" alt="MY JOB kamion" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika23.jpg" alt="MY JOB transport BiH" loading="lazy"></div>
+        <div class="fleet-item"><img src="slika24.jpg" alt="MY JOB kamion EU" loading="lazy"></div>
       </div>
     </div>
   </section>
@@ -817,104 +436,138 @@
   <section class="section" id="o-nama">
     <div class="container about-wrap">
       <div class="about-card">
-        <div class="tag" style="color:#ef4444; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; font-size:13px; margin-bottom:12px;">O nama</div>
+        <div class="tag" style="color:#ef4444; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; font-size:13px; margin-bottom:12px;" data-t="about_tag">O nama</div>
         <h3>MY JOB transporti Sarajevo</h3>
-        <p>
-          MY JOB transporti Sarajevo je pouzdana transportna firma sa dugogodišnjim iskustvom u domaćem i međunarodnom transportu robe.
-        </p>
-        <p>
-          Naš fokus je na sigurnosti, brzini isporuke, profesionalnoj komunikaciji i kvaliteti usluge, uz moderan vozni park i kontinuiranu logističku podršku.
-        </p>
-
+        <p data-t="about_p1">MY JOB transporti Sarajevo je pouzdana transportna firma sa dugogodišnjim iskustvom u domaćem i međunarodnom transportu robe.</p>
+        <p data-t="about_p2">Naš fokus je na sigurnosti, brzini isporuke, profesionalnoj komunikaciji i kvaliteti usluge, uz moderan vozni park i kontinuiranu logističku podršku.</p>
         <div class="check-list">
-          <div class="check"><span>✔</span><div>Transport robe širom Evrope</div></div>
-          <div class="check"><span>✔</span><div>Frigo transport u plus i minus režimu</div></div>
-          <div class="check"><span>✔</span><div>Vozila sa EURO 6 standardom</div></div>
-          <div class="check"><span>✔</span><div>Praćenje i organizacija transporta 24/7</div></div>
+          <div class="check"><span>✔</span><div data-t="check1">Transport robe širom Evrope</div></div>
+          <div class="check"><span>✔</span><div data-t="check2">Frigo transport u plus i minus režimu</div></div>
+          <div class="check"><span>✔</span><div data-t="check3">Vozila sa EURO 6 standardom</div></div>
+          <div class="check"><span>✔</span><div data-t="check4">Praćenje i organizacija transporta 24/7</div></div>
         </div>
       </div>
-
-      <div class="about-image">
-        <img src="slika4.jpg" alt="MY JOB kamion" loading="lazy">
-      </div>
+      <div class="about-image"><img src="slika4.jpg" alt="MY JOB kamion" loading="lazy"></div>
     </div>
   </section>
 
   <section class="section" id="kontakt">
     <div class="container">
       <div class="section-head">
-        <div class="tag">Kontakt</div>
-        <h2>Javite nam se za sve potrebe transporta</h2>
-        <p>
-          Tu smo za upite, organizaciju transporta i dugoročnu saradnju.
-        </p>
+        <div class="tag" data-t="contact_tag">Kontakt</div>
+        <h2 data-t="contact_title">Javite nam se za sve potrebe transporta</h2>
+        <p data-t="contact_desc">Tu smo za upite, organizaciju transporta i dugoročnu saradnju.</p>
       </div>
-
       <div class="contact-wrap">
         <div class="contact-card">
-          <h3>Kontakt informacije</h3>
-
+          <h3 data-t="contact_info">Kontakt informacije</h3>
           <div class="contact-list">
-            <div class="contact-item">
-              <div class="contact-icon">📞</div>
-              <div>
-                <strong>Telefon</strong><br>
-                <a href="tel:+38761348768">+387 61 348 768</a>
-              </div>
-            </div>
-
-            <div class="contact-item">
-              <div class="contact-icon">✉️</div>
-              <div>
-                <strong>Email</strong><br>
-                <a href="mailto:myjob.transpoti@gmail.com">myjob.transpoti@gmail.com</a>
-              </div>
-            </div>
-
-            <div class="contact-item">
-              <div class="contact-icon">📍</div>
-              <div>
-                <strong>Adresa</strong><br>
-                Nikole Šopa 97, Sarajevo
-              </div>
-            </div>
+            <div class="contact-item"><div class="contact-icon">📞</div><div><strong data-t="phone">Telefon</strong><br><a href="tel:+38761348768">+387 61 348 768</a></div></div>
+            <div class="contact-item"><div class="contact-icon">✉️</div><div><strong>Email</strong><br><a href="mailto:myjob.transporti@gmail.com">myjob.transporti@gmail.com</a></div></div>
+            <div class="contact-item"><div class="contact-icon">📍</div><div><strong data-t="address">Adresa</strong><br>Nikole Šopa 97, Sarajevo</div></div>
           </div>
         </div>
-
         <div class="contact-card cta-box">
-          <h3>Spremni za saradnju?</h3>
-          <p style="color:var(--muted); line-height:1.8; margin:0 0 22px;">
-            Kontaktirajte nas i pošaljite upit za transport. Naš tim će vam pomoći da
-            brzo i efikasno organizujete siguran prevoz robe.
-          </p>
-
+          <h3 data-t="cta_title">Spremni za saradnju?</h3>
+          <p style="color:var(--muted); line-height:1.8; margin:0 0 22px;" data-t="cta_desc">Kontaktirajte nas i pošaljite upit za transport. Naš tim će vam pomoći da brzo i efikasno organizujete siguran prevoz robe.</p>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="tel:+38761348768">Pozovi odmah</a>
-            <a class="btn btn-secondary" href="mailto:myjob.transpoti@gmail.com">Pošalji email</a>
+            <a class="btn btn-primary" href="tel:+38761348768" data-t="cta_btn1">Pozovi odmah</a>
+            <a class="btn btn-secondary" href="mailto:myjob.transporti@gmail.com" data-t="cta_btn2">Pošalji email</a>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <footer>
-    <div class="container">
-      © 2026 MY JOB transporti Sarajevo — Sva prava pridržana
-    </div>
-  </footer>
+  <footer><div class="container"><span data-t="footer">© 2026 MY JOB transporti Sarajevo — Sva prava pridržana</span></div></footer>
+  <a href="https://wa.me/38761348768" class="wa-btn" target="_blank" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
 
   <script>
     const slides = document.querySelectorAll('.hero-slide');
     let current = 0;
-
     setInterval(() => {
       slides[current].classList.remove('active');
       current = (current + 1) % slides.length;
       slides[current].classList.add('active');
     }, 4500);
-function toggleMenu(){
-  document.querySelector("nav").classList.toggle("active");
-}
+
+    function toggleMenu(){
+      document.getElementById("mainNav").classList.toggle("active");
+    }
+    document.querySelectorAll('nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById("mainNav").classList.remove('active');
+      });
+    });
+
+    const translations = {
+      bs: {
+        nav_home:"Početna", nav_services:"Usluge", nav_fleet:"Vozni park", nav_about:"O nama", nav_contact:"Kontakt",
+        hero_eyebrow:"Pouzdan partner za domaći i međunarodni transport",
+        hero_title:"Transport bez granica",
+        hero_desc:"Siguran, brz i profesionalan transport robe širom Evrope uz moderan vozni park, rashladne prikolice i maksimalnu pouzdanost u svakom kilometru.",
+        hero_btn1:"Kontaktiraj nas", hero_btn2:"Pogledaj vozni park",
+        stat1:"godina iskustva", stat2:"transportno tržište", stat3:"logistika i praćenje",
+        services_tag:"Naše usluge", services_title:"Kompletna transportna rješenja za vaše poslovanje", services_desc:"Fokusirani smo na sigurnost robe, tačnost isporuke i profesionalnu organizaciju transporta od utovara do krajnje destinacije.",
+        feature1_title:"Kopneni transport", feature1_desc:"Organizujemo brz i siguran transport robe širom Evrope uz maksimalnu pouzdanost, tačnost i profesionalan pristup svakom klijentu.",
+        feature2_title:"Frigo transport", feature2_desc:"Specijalizirani transport u kontrolisanim temperaturnim režimima za robu koja zahtijeva stabilne uslove u plus i minus režimu.",
+        feature3_title:"Logistika i praćenje", feature3_desc:"Planiranje ruta, organizacija isporuka i praćenje transporta 24/7 kako bi svaka pošiljka stigla sigurno i na vrijeme.",
+        statbox1:"savremeni standard voznog parka", statbox2:"podrška i organizacija transporta", statbox3:"temperaturni režimi transporta", statbox4:"CompanyWall ocjena iz dokumenta",
+        fleet_tag:"Vozni park", fleet_title:"Moderan vozni park spreman za ozbiljne rute", fleet_desc:"Šleperi i hladnjače za efikasan transport robe uz pouzdanost, urednost i snažan vizualni identitet firme.",
+        about_tag:"O nama", about_p1:"MY JOB transporti Sarajevo je pouzdana transportna firma sa dugogodišnjim iskustvom u domaćem i međunarodnom transportu robe.", about_p2:"Naš fokus je na sigurnosti, brzini isporuke, profesionalnoj komunikaciji i kvaliteti usluge, uz moderan vozni park i kontinuiranu logističku podršku.",
+        check1:"Transport robe širom Evrope", check2:"Frigo transport u plus i minus režimu", check3:"Vozila sa EURO 6 standardom", check4:"Praćenje i organizacija transporta 24/7",
+        contact_tag:"Kontakt", contact_title:"Javite nam se za sve potrebe transporta", contact_desc:"Tu smo za upite, organizaciju transporta i dugoročnu saradnju.",
+        contact_info:"Kontakt informacije", phone:"Telefon", address:"Adresa",
+        cta_title:"Spremni za saradnju?", cta_desc:"Kontaktirajte nas i pošaljite upit za transport. Naš tim će vam pomoći da brzo i efikasno organizujete siguran prevoz robe.",
+        cta_btn1:"Pozovi odmah", cta_btn2:"Pošalji email",
+        footer:"© 2026 MY JOB transporti Sarajevo — Sva prava pridržana"
+      },
+      en: {
+        nav_home:"Home", nav_services:"Services", nav_fleet:"Fleet", nav_about:"About Us", nav_contact:"Contact",
+        hero_eyebrow:"Reliable partner for domestic and international transport",
+        hero_title:"Transport without borders",
+        hero_desc:"Safe, fast and professional transport of goods across Europe with a modern fleet, refrigerated trailers and maximum reliability in every kilometer.",
+        hero_btn1:"Contact Us", hero_btn2:"View Fleet",
+        stat1:"years of experience", stat2:"transport market", stat3:"logistics and tracking",
+        services_tag:"Our Services", services_title:"Complete transport solutions for your business", services_desc:"We focus on cargo safety, delivery accuracy and professional organization of transport from loading to final destination.",
+        feature1_title:"Land Transport", feature1_desc:"We organize fast and safe transport of goods across Europe with maximum reliability, accuracy and a professional approach to each client.",
+        feature2_title:"Refrigerated Transport", feature2_desc:"Specialized transport in controlled temperature regimes for goods requiring stable conditions in plus and minus mode.",
+        feature3_title:"Logistics and Tracking", feature3_desc:"Route planning, delivery organization and 24/7 transport tracking so every shipment arrives safely and on time.",
+        statbox1:"modern fleet standard", statbox2:"support and transport organization", statbox3:"temperature transport regimes", statbox4:"CompanyWall rating from document",
+        fleet_tag:"Fleet", fleet_title:"Modern fleet ready for serious routes", fleet_desc:"Trucks and refrigerated units for efficient transport of goods with reliability, neatness and strong visual identity of the company.",
+        about_tag:"About Us", about_p1:"MY JOB transporti Sarajevo is a reliable transport company with many years of experience in domestic and international transport of goods.", about_p2:"Our focus is on safety, delivery speed, professional communication and service quality, with a modern fleet and continuous logistics support.",
+        check1:"Transport of goods across Europe", check2:"Refrigerated transport in plus and minus mode", check3:"Vehicles with EURO 6 standard", check4:"24/7 transport tracking and organization",
+        contact_tag:"Contact", contact_title:"Contact us for all transport needs", contact_desc:"We are here for inquiries, transport organization and long-term cooperation.",
+        contact_info:"Contact Information", phone:"Phone", address:"Address",
+        cta_title:"Ready to cooperate?", cta_desc:"Contact us and send an inquiry for transport. Our team will help you quickly and efficiently organize safe transport of goods.",
+        cta_btn1:"Call Now", cta_btn2:"Send Email",
+        footer:"© 2026 MY JOB transporti Sarajevo — All rights reserved"
+      }
+    };
+
+    function applyLang(lang){
+      document.querySelectorAll('[data-t]').forEach(el=>{
+        const key = el.getAttribute('data-t');
+        if(translations[lang] && translations[lang][key]){
+          el.textContent = translations[lang][key];
+        }
+      });
+      document.getElementById('langBtn').textContent = lang==='bs' ? 'English' : 'Bosanski';
+      document.getElementById('langBtnMobile').textContent = lang==='bs' ? 'English' : 'Bosanski';
+      document.documentElement.lang = lang;
+      localStorage.setItem('siteLang', lang);
+    }
+
+    function toggleLang(){
+      const currentLang = localStorage.getItem('siteLang') || 'bs';
+      const newLang = currentLang === 'bs' ? 'en' : 'bs';
+      applyLang(newLang);
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const savedLang = localStorage.getItem('siteLang') || 'bs';
+      applyLang(savedLang);
+    });
   </script>
 </body>
-</html> 
+</html>
